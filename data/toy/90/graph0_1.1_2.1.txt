@@ -1,0 +1,4 @@
+Source	Target	Type	Weight
+1	0	Undirected	4.07641e-05	
+2	0	Undirected	1.29308e-06	
+3	0	Undirected	8.06624e-05	
