@@ -1,13 +1,16 @@
-README authors: Sorour E. Amiri, Liangzhe Chen and B. Aditya Prakash.
-Dated: Dec 10, 2016
+Authors: Sorour E. Amiri, Liangzhe Chen, and B. Aditya Prakash
+Date: Dec 10, 2016
 
-Note: You need to change the correct MATLAB_PATH in the makefile. You may need to include the directory of unordered_map and unordered_set in the makefile.
+Note: You need to change the correct MATLAB_PATH in the makefile.
 
 Usage:
 
-First do 'make' (to compile sources)
-then:
-   python SnapNETS.py <data_path> <matlab_path> <num thread>
+>> make
+>> make demo
+
+First do 'make' (to compile sources). Then 'make demo' will run the Snapnets for toy example. You can directly run SnapNETS.py with the following command:
+
+>> python SnapNETS.py <data_path> <matlab_path> <num thread>
 
 <data_path> : Directory of the dataset
 <matlab_path>: Matlab directory in your machine
@@ -17,18 +20,18 @@ Example: python SnapNETS.py ./data/toy/ /Applications/MATLAB_R2014a.app/bin/matl
 
 ==============================================================
 Input:
-- graph.txt : It is a tab separated file and index of nodes starts from 1. Here are an example graph and its representation:
+- graph.txt : It is a tab separated file and index of nodes starts from 1 and are consecutive. Here is an example graph and its representation:
 1 ----- 2
- |	 |
- |	 |
- |	 |
+ |	    |
+ |      |
+ |	    |
  3 ----- 5
   \     /
    \   /
     \ /
      4
 
-The graph.txt file will be:
+The graph.txt file is:
 
 Source	Target
 1	2
@@ -46,25 +49,6 @@ node	time
 3	1.3
 
 
-- nodes.txt: It contains the list of nodes in the graph. For the following graph
-1 ----- 2
- |	 |
- |	 |
- |	 |
- 3 ----- 5
-  \     /
-   \   /
-    \ /
-     4
-
-the nodes.txt fill will be:
-
-1
-2
-3
-4
-5
-
 
 ====================================================================
 Output:
@@ -74,12 +58,11 @@ Output:
 It means we have a cut point at time 2.1 in the time interval 1.1-4.1
 
 - Intermediate results:
-     * 90: It is a directory which contains the coarsened graphs and their feature representation. The following are the intermediate files correspond to the first snapshot:
+     * 90: It is a directory which contains the coarsened graphs and their feature representations. The following are the intermediate files correspond to the first snapshot of the above example:
          coarse_0_seg_1.1_2.1
          feature0.txt
          final_map_0_seg_1.1_2.1.txt
          graph0_1.1_2.1.txt
-         mode-1-time_clock.txt
          nodes0_1.1_2.1.txt
          time_0_seg_1.1_2.1.txt
 

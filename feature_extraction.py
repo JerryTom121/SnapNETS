@@ -377,28 +377,28 @@ def feature_local(coarse_link, weights, G, active_set, inactive_set, coarsening_
 	else:
 		feature_vector.append(0)
 
-	inactive_deg = list(G.degree(inactive_set).values())
-	if len(inactive_deg) > 0:
-		f_entopy_deg_inactive, num_id = calc_entropy2(inactive_deg)
-	else:
-		f_entopy_deg_inactive = 0
-		num_id = 1
-	max_ient = calc_entropy3([1.0 / num_id] * num_id)
-	if max_ient > epsilon:
-		feature_vector.append(f_entopy_deg_inactive / max_ient)
-	else:
-		feature_vector.append(0.0)
-	star_act_core, star_inact_core, frontier_edge = get_star2(G.edges(), active_set, inactive_set)
-	if m_deg > 0:
-		feature_vector.append(star_act_core / float(m_deg))
-	else:
-		feature_vector.append(0)
+	# inactive_deg = list(G.degree(inactive_set).values())
+	# if len(inactive_deg) > 0:
+	# 	f_entopy_deg_inactive, num_id = calc_entropy2(inactive_deg)
+	# else:
+	# 	f_entopy_deg_inactive = 0
+	# 	num_id = 1
+	# max_ient = calc_entropy3([1.0 / num_id] * num_id)
+	# if max_ient > epsilon:
+	# 	feature_vector.append(f_entopy_deg_inactive / max_ient)
+	# else:
+	# 	feature_vector.append(0.0)
+	# star_act_core, star_inact_core, frontier_edge = get_star2(G.edges(), active_set, inactive_set)
+	# if m_deg > 0:
+	# 	feature_vector.append(star_act_core / float(m_deg))
+	# else:
+	# 	feature_vector.append(0)
 	# feature_vector.append(star_inact_core / float(m_deg))
 	# print('len(feature_vector): ' + str(len(feature_vector)))
 	return feature_vector
 
 
-def extract_feature(coarse_link, coarse_node_label, coarse_link_weight, coarse_labels, test_mode, coarsening_mode, normal):
+def extract_feature(coarse_link, coarse_node_label, coarse_link_weight, coarsening_mode):
 	# print('extracting features...')
 	links = coarse_link[:]
 	# print('links: ' + str(len(links)))
@@ -423,9 +423,5 @@ def extract_feature(coarse_link, coarse_node_label, coarse_link_weight, coarse_l
 
 	G.add_weighted_edges_from(tuple)
 	# G.add_edge(node1, node2, weight=float(w))
-
-	if normal == 'local':
-		feature_vector = feature_local(coarse_link, weights, G, active_set, inactive_set, coarsening_mode)
-	elif normal == 'raw':
-		feature_vector = feature_raw(coarse_link, weights, G, active_set, inactive_set, coarsening_mode)
+	feature_vector = feature_raw(coarse_link, weights, G, active_set, inactive_set, coarsening_mode)
 	return feature_vector
