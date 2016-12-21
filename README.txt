@@ -22,9 +22,9 @@ Example: python SnapNETS.py ./data/toy/ /Applications/MATLAB_R2014a.app/bin/matl
 Input:
 - graph.txt : It is a tab separated file and index of nodes starts from 1 and are consecutive. Here is an example graph and its representation:
 1 ----- 2
- |	 |
- |	 |
- |	 |
+ |	    |
+ |      |
+ |	    |
  3 ----- 5
   \     /
    \   /
@@ -63,7 +63,6 @@ It means we have a cut point at time 2.1 in the time interval 1.1-4.1
          feature0.txt
          final_map_0_seg_1.1_2.1.txt
          graph0_1.1_2.1.txt
-         mode-1-time_clock.txt
          nodes0_1.1_2.1.txt
          time_0_seg_1.1_2.1.txt
 
