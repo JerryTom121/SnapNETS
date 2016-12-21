@@ -22,9 +22,9 @@ Example: python SnapNETS.py ./data/toy/ /Applications/MATLAB_R2014a.app/bin/matl
 Input:
 - graph.txt : It is a tab separated file and index of nodes starts from 1 and are consecutive. Here is an example graph and its representation:
 1 ----- 2
- |	    |
+ |	     |
  |      |
- |	    |
+ |	     |
  3 ----- 5
   \     /
    \   /
