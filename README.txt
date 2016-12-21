@@ -1,4 +1,4 @@
-Authors: Sorour E. Amiri, Liangzhe Chen, and B. Aditya Prakash
+uthors: Sorour E. Amiri, Liangzhe Chen, and B. Aditya Prakash
 Date: Dec 10, 2016
 
 Note: You need to change the correct MATLAB_PATH in the makefile.
@@ -22,9 +22,9 @@ Example: python SnapNETS.py ./data/toy/ /Applications/MATLAB_R2014a.app/bin/matl
 Input:
 - graph.txt : It is a tab separated file and index of nodes starts from 1 and are consecutive. Here is an example graph and its representation:
 1 ----- 2
- |	    |
+ |	     |
  |      |
- |	    |
+ |	     |
  3 ----- 5
   \     /
    \   /
@@ -67,3 +67,4 @@ It means we have a cut point at time 2.1 in the time interval 1.1-4.1
          time_0_seg_1.1_2.1.txt
 
     * cc: It is a directory which contains the active nodes in each snapshot and the score of edges to merge in the coarsening process. 
+
