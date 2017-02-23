@@ -279,23 +279,23 @@ def feature_raw(coarse_link, weights, G, active_set, inactive_set, coarsening_mo
 	# print 'Avg'
 	Avg = get_avg_deg_act_neighbor(G, active_set)
 	feature_vector.append(Avg)
-	inactive_deg = list(G.degree(inactive_set).values())
-	if len(inactive_deg) > 0:
-		f_entopy_deg_inactive, num_id = calc_entropy2(inactive_deg)
-	else:
-		f_entopy_deg_inactive = 0
-		num_id = 1
-	max_ient = calc_entropy3([1.0 / num_id] * num_id)
-	if max_ient > epsilon:
-		feature_vector.append(f_entopy_deg_inactive)
-	else:
-		feature_vector.append(0.0)
-	# print 'star'
-	star_act_core, star_inact_core, frontier_edge = get_star2(G.edges(), active_set, inactive_set)
-	if m_deg > 0:
-		feature_vector.append(star_act_core)
-	else:
-		feature_vector.append(0)
+	# inactive_deg = list(G.degree(inactive_set).values())
+	# if len(inactive_deg) > 0:
+	# 	f_entopy_deg_inactive, num_id = calc_entropy2(inactive_deg)
+	# else:
+	# 	f_entopy_deg_inactive = 0
+	# 	num_id = 1
+	# max_ient = calc_entropy3([1.0 / num_id] * num_id)
+	# if max_ient > epsilon:
+	# 	feature_vector.append(f_entopy_deg_inactive)
+	# else:
+	# 	feature_vector.append(0.0)
+	# # print 'star'
+	# star_act_core, star_inact_core, frontier_edge = get_star2(G.edges(), active_set, inactive_set)
+	# if m_deg > 0:
+	# 	feature_vector.append(star_act_core)
+	# else:
+	# 	feature_vector.append(0)
 
 	return feature_vector
 
