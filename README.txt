@@ -38,9 +38,9 @@ Input:
 
 It is a tab separated file and index of nodes starts from 1 and are consecutive. Here are an example graph and its representation:
  1 ----- 2
- |	     |
- |  	 |
- |	     |
+ |       |
+ |       |
+ |       |
  3 ----- 5
   \     /
    \   /
