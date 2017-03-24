@@ -1,6 +1,5 @@
 __author__ = 'Sorour E.Amiri'
 
-import graph_ALP as galp
 import os
 import networkx as nx
 import sys
@@ -8,49 +7,54 @@ import subprocess
 import creat_gephi_files2 as getgraph
 import numpy as np
 import time
-import multiprocessing as mp
 import os.path
-import get_segment_feature as seg_feature
 import feature_extraction as fe
-
-mode_seg = 'all'
-coarsen_edge_weight = '0.02'
+import multiprocessing
+import getEigenScore as gES
+import PALP as falp
 
 
 def segmentation(args):
-	all_segments, segment_index, components_active_nodes, i, root_dir, root_dir_component, root_dir_percent,  percent, score_dir, t_min, num_active, coarsening_mode, test_mode, mode, s_min, verbal = args
-
-	segment = all_segments[segment_index]
-	seg_score_dir, seg_active_dir, coarse_input_dir, coarse_output_dir, map_dir, temp_dir = get_comp_seg_dir(root_dir_percent,
-																											 root_dir_component,
+	segment_index_arr, smallest_segments, root_dir, data_dir, active_nodes, coarsening_mode = args
+	score_dir = data_dir + 'score.txt'
+	for segment_index in segment_index_arr:
+		i = 0
+		segment = smallest_segments[segment_index]
+		try:
+			components_active_nodes = active_nodes[segment[0]]
+		except KeyError:
+			components_active_nodes = []
+		seg_score_dir, seg_active_dir, coarse_input_dir, coarse_output_dir, map_dir, temp_dir = get_comp_seg_dir(data_dir,
 																											 i, segment)
-	sub_active_node = get_sub_link_score(segment, components_active_nodes[i], score_dir, seg_score_dir, seg_active_dir, t_min)
-	num_active[segment_index] += len(sub_active_node)
-	start = time.time()
-	coarse_net(coarsening_mode, coarse_input_dir, seg_score_dir, percent, coarse_output_dir, map_dir, temp_dir)
-	elapsed = (time.time() - start)
-	# print('end of coarse_net')
+		sub_active_node = get_sub_link_score(components_active_nodes, score_dir, seg_score_dir, seg_active_dir)
+		start = time.time()
+		coarse_net(coarsening_mode, coarse_input_dir, seg_score_dir, percent, coarse_output_dir, map_dir, temp_dir)
+		elapsed = (time.time() - start)
+		# print('end of coarse_net')
 
-	comp_links_dir = root_dir_component + '/coarse.txt'  # 'newInx_links.txt'
-	comp_nodes_dir = root_dir_component + 'newInx_nodes.txt'
-	gephi_graph = root_dir_percent + 'graph' + str(i) + '_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
-	gephi_nodes = root_dir_percent + 'nodes' + str(i) + '_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
-	# print('get graph')
-	coarse_link, coarse_node_label, coarse_link_weight, coarse_labels = getgraph.main(coarse_output_dir, map_dir,
-																					  seg_active_dir, gephi_graph,
-																					  gephi_nodes)
-	# coarse_link, coarse_node_label, coarse_link_weight, coarse_labels = read_gephi(gephi_graph, gephi_nodes,
-	# 																			   coarsening_mode, comp_links_dir,
-	# 																			   comp_nodes_dir, seg_active_dir)
-	# print('component_feature_time')
-	component_feature_time = fe.extract_feature(coarse_link, coarse_node_label, coarse_link_weight, coarsening_mode)
-	feature_dir = root_dir_percent + 'feature' + str(segment_index) + '.txt'
-	with open(feature_dir, 'w') as f:
-		for items in component_feature_time:
-			f.write(str(items) + '\t')
-	f.close()
+		gephi_graph = root_dir + percent + '/graph' + str(i) + '_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
+		gephi_nodes = root_dir + percent + '/nodes' + str(i) + '_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
+		# print('get graph')
+		coarse_link, coarse_node_label, coarse_link_weight, coarse_labels = getgraph.main(coarse_output_dir, map_dir,
+																						  seg_active_dir, gephi_graph,
+																						  gephi_nodes)
+		# comp_links_dir = data_dir + '/coarse.txt'  # 'newInx_links.txt'
+		# comp_nodes_dir = data_dir + 'newInx_nodes.txt'
+		# coarse_link, coarse_node_label, coarse_link_weight, coarse_labels = read_gephi(gephi_graph, gephi_nodes,
+		# 																			   coarsening_mode, comp_links_dir,
+		# 																			   comp_nodes_dir, seg_active_dir)
+		# print('component_feature_time')
+		component_feature_time = fe.extract_feature(coarse_link, coarse_node_label, coarse_link_weight, coarsening_mode)
+		prefix = root_dir + percent + '/'
+		if not os.path.exists(prefix):
+			os.makedirs(prefix)
+		feature_dir = prefix + 'feature' + str(segment_index) + '.txt'
+		with open(feature_dir, 'w') as f:
+			for items in component_feature_time:
+				f.write(str(items) + '\t')
+		f.close()
 
-	# print('parallel finished..')
+		# print('parallel finished..')
 	return 0
 
 
@@ -142,11 +146,10 @@ def read_gephi(gephi_graph, gephi_nodes, coarsening_mode, comp_links_dir, comp_n
 	return coarse_link, coarse_node_label, coarse_link_weight, coarse_labels
 
 
-def read_features(all_segments, root_dir_percent, selected_features):
+def read_features(smallest_segments, root_dir, percent, selected_features):
 	component_feature = []
-	act_num_coarsen = []
-	for segment_index in range(len(all_segments)):
-		feature_dir = root_dir_percent + '/feature' + str(segment_index) + '.txt'
+	for segment_index in range(len(smallest_segments)):
+		feature_dir = root_dir + percent + '/feature' + str(segment_index) + '.txt'
 		component_feature_time = []
 		with open(feature_dir) as f:
 			lines = f.read().splitlines()
@@ -161,15 +164,13 @@ def read_features(all_segments, root_dir_percent, selected_features):
 				temp.append(component_feature_time[item])
 
 			# act_num_coarsen.append(component_feature_time[9])
-			act_num_coarsen.append(0)
 			component_feature_time = temp[:]
 			component_feature.append(component_feature_time)
 
-	return component_feature, act_num_coarsen
+	return component_feature
 
 
 def normalize_features(feature_matrix, normalizing):
-	# print('normalize_features: ' + normalize_mode)
 	new_wins_features = []
 	win_size = len(feature_matrix[0])
 	for win in feature_matrix:
@@ -202,10 +203,10 @@ def normalize_features(feature_matrix, normalizing):
 	wins_features.append(temp)
 	return wins_features
 
-
-def read_comps(root_dir_component, num_of_comps):
+def read_comps(root_dir, num_of_comps):
 	components_links = []
 	for i in range(num_of_comps):
+		root_dir_component = root_dir + 'cc/'
 		comp = []
 		with open(root_dir_component + 'links.txt') as f:
 			lines = f.read().splitlines()
@@ -217,6 +218,7 @@ def read_comps(root_dir_component, num_of_comps):
 
 	components_nodes = []
 	for i in range(num_of_comps):
+		root_dir_component = root_dir + 'cc/'
 		comp = []
 		with open(root_dir_component + 'nodes.txt') as f:
 			lines = f.read().splitlines()
@@ -227,6 +229,7 @@ def read_comps(root_dir_component, num_of_comps):
 
 	components_active_nodes = []
 	for i in range(num_of_comps):
+		root_dir_component = root_dir + 'cc/'
 		comp = []
 		with open(root_dir_component + 'active_nodes.txt') as f:
 			lines = f.read().splitlines()
@@ -238,9 +241,10 @@ def read_comps(root_dir_component, num_of_comps):
 	return components_links, components_nodes, components_active_nodes
 
 
-def read_new_index(root_dir_component, num_of_comps, coarsen_edge_weight):
+def read_new_index(root_dir, num_of_comps, coarsen_edge_weight):
 	components_links = []
 	for i in range(num_of_comps):
+		root_dir_component = root_dir + 'cc/'
 		comp = []
 		with open(root_dir_component + 'newInx_links.txt') as f:
 			lines = f.read().splitlines()
@@ -252,6 +256,7 @@ def read_new_index(root_dir_component, num_of_comps, coarsen_edge_weight):
 
 	components_nodes = []
 	for i in range(num_of_comps):
+		root_dir_component = root_dir + 'cc/'
 		comp = []
 		with open(root_dir_component + 'newInx_nodes.txt') as f:
 			lines = f.read().splitlines()
@@ -262,6 +267,7 @@ def read_new_index(root_dir_component, num_of_comps, coarsen_edge_weight):
 
 	components_active_nodes = []
 	for i in range(num_of_comps):
+		root_dir_component = root_dir + 'cc/'
 		comp = []
 		with open(root_dir_component + 'newInx_active_nodes.txt') as f:
 			lines = f.read().splitlines()
@@ -272,6 +278,7 @@ def read_new_index(root_dir_component, num_of_comps, coarsen_edge_weight):
 		components_active_nodes.append(comp)
 	# print('saving coarsening components...')
 	for i in range(len(components_links)):
+		root_dir_component = root_dir + 'cc/'
 		if not os.path.exists(root_dir_component):
 			os.makedirs(root_dir_component)
 		comp = components_links[i]
@@ -285,13 +292,13 @@ def read_new_index(root_dir_component, num_of_comps, coarsen_edge_weight):
 	return components_links, components_nodes, components_active_nodes
 
 
-def get_comp_seg_dir(root_dir_percent, root_dir_component, i, segment):
+def get_comp_seg_dir(root_dir_component, i, segment):
 	seg_score_dir = root_dir_component + 'score_seg_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
 	seg_active_dir = root_dir_component + 'active_nodes_seg_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
-	coarse_input_dir = root_dir_component + '/coarse.txt'
-	coarse_output_dir = root_dir_percent + 'coarse_' + str(i) + '_seg_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
-	map_dir = root_dir_percent + 'final_map_' + str(i) + '_seg_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
-	temp_dir = root_dir_percent + 'time_' + str(i) + '_seg_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
+	coarse_input_dir = root_dir_component + 'coarse.txt'
+	coarse_output_dir = root_dir_component + 'coarse__seg_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
+	map_dir = root_dir_component + 'final_map__seg_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
+	temp_dir = root_dir_component + 'time_' + str(i) + '_seg_' + str(segment[0]) + '_' + str(segment[1]) + '.txt'
 	return seg_score_dir, seg_active_dir, coarse_input_dir, coarse_output_dir, map_dir, temp_dir
 
 
@@ -315,14 +322,10 @@ def save_sub_link_scores(sub_link_scores, sub_active_node, seg_score_dir, seg_ac
 	f.close()
 
 
-def get_sub_link_score(segment, components_active_nodes, score_dir, seg_score_dir, seg_active_dir, t_min):
-	# print('getting sub nodes...')
-	sub_active_node = []
+def get_sub_link_score(sub_active_node, score_dir, seg_score_dir, seg_active_dir):
 	D = {}
-	for node, time in components_active_nodes:
-		if (time < segment[1]) and (t_min <= time):
-			sub_active_node.append(node)
-			D[str(node)] = 0
+	for key in sub_active_node:
+		D[key] = 0
 	# print('remove candidates...')
 	sub_link_scores = []
 	with open(score_dir) as f:
@@ -334,11 +337,11 @@ def get_sub_link_score(segment, components_active_nodes, score_dir, seg_score_di
 		a = int(nodes[0])
 		b = int(nodes[1])
 		try:
-			temp1 = D[str(a)]
+			temp1 = D[a]
 		except:
 			temp1 = 1
 		try:
-			temp2 = D[str(b)]
+			temp2 = D[b]
 		except:
 			temp2 = 1
 
@@ -350,59 +353,36 @@ def get_sub_link_score(segment, components_active_nodes, score_dir, seg_score_di
 	return sub_active_node
 
 
-def get_link_score(component_dir, matlab_path, score_file):
-	# print 'Scoring started'
-	matlab_function = "getEigenScore('" + component_dir + "', '" + score_file + "')"
-	subprocess.call([matlab_path, "-nosplash", "-nodisplay", "-r", matlab_function])
+def get_link_score(component_dir, score_file):
+	component = []
+	with open(component_dir) as f:
+		lines = f.readlines()
+	for line in lines:
+		items = line.split('\t')
+		component.append([int(items[0]), int(items[1]), float(items[2]), float(items[3])])
+	link_score, lambda0 = gES.main(component, score_file, tol='1e-10')
 	# print 'Finished Scoring'
 
 
-def get_all_segments(t_min, t_max, s_min, s_max, epsilon, seg_dir, data, verbal):
+def get_smallest_segments(t_min, t_max, s_min, epsilon, verbal, seg_dir):
 	error = 1e-5
-	D = {}
-	all_segments = []
 	smallest_segments = []
-	seg_size = s_min
-	while seg_size <= s_max:
-		y_s = t_min
-		y_e = y_s + seg_size
-		while y_s <= (t_max - epsilon):
-			try:
-				temp = D[str(y_s) + '-' + str(y_e)]
-			except KeyError:
-				D[str(y_s) + '-' + str(y_e)] = 0
-				if reminder((y_e - y_s), s_min) <= error:
-					all_segments.append([y_s, y_e])
-				if seg_size == s_min:
-					if reminder((y_e - y_s), s_min) <= error:
-						smallest_segments.append([y_s, y_e])
-
-			y_s += s_min
-			y_e = min(y_s + seg_size, t_max)
-		seg_size += s_min
-	seg_size = s_max
-	y_s = t_min
-	y_e = y_s + seg_size
+	y_s = round(t_min, e_round)
+	y_e = round(y_s + s_min, e_round)
 	while y_s <= (t_max - epsilon):
-		try:
-			temp = D[str(y_s) + '-' + str(y_e)]
-		except:
-			D[str(y_s) + '-' + str(y_e)] = 0
-			if reminder((y_e - y_s), s_min) <= error:
-				all_segments.append([y_s, y_e])
-		y_s += s_min
-		y_e = min(y_s + seg_size, t_max)
-	i = 0
-	if verbal:
-		with open(seg_dir + 'all_segments.txt', 'w') as f:
-			for line in all_segments:
-				f.write(str(i) + ': ' + str(line[0]) + '\t' + str(line[1]) + '\n')
-				i += 1
+		y_s = round(y_s, e_round)
+		y_e = round(y_e, e_round)
+		if reminder((y_e - y_s), s_min) <= error:
+			smallest_segments.append([y_s, y_e])
 
+		y_s += s_min
+		y_e = min(y_s + s_min, t_max)
+	########################################################
+	if verbal:
 		with open(seg_dir + 'smallest_segments.txt', 'w') as f:
 			for line in smallest_segments:
 				f.write(str(line[0]) + '\t' + str(line[1]) + '\n')
-	return all_segments, smallest_segments
+	return smallest_segments
 
 
 def save_components(components_links, components_nodes, components_active_nodes, root_dir):
@@ -497,202 +477,410 @@ def get_components(links, nodes, active_nodes, root_dir):
 	return components_links, components_nodes, components_active_nodes
 
 
-def read_graph(link_dir, active_node_dir, cc_dir):
-	active_nodes = []
-	time = []
-	links = []
-	nodes = []
-	node_dict = {}
+def read_graph(link_dir, active_node_dir, coarse_file):
+	print 'read_graph'
+	active_nodes = {}
+	links = {}
+	nodes = {}
+	t_min = None
+	t_max = None
 	with open(link_dir) as f:
 		lines = f.read().splitlines()
 	lines.pop(0)
-	counter = 0
 	for line in lines:
-		counter += 1
 		items = line.split('\t')
-		links.append([int(items[0]), int(items[1])])
-		node_dict[int(items[0])] = 0
-		node_dict[int(items[1])] = 0
+		n1 = int(items[0])
+		n2 = int(items[1])
 
-	for node in node_dict:
-		nodes.append(node)
+		links[str([n1, n2])] = [n1, n2]
+		nodes[n1] = 0
+		nodes[n2] = 0
 
 	with open(active_node_dir) as f:
 		lines = f.read().splitlines()
 	lines.pop(0)
 	for line in lines:
 		items = line.split('\t')
-		time.append(float(items[1]))
-		active_nodes.append([int(float(items[0])), float(items[1])])
-	t_min = min(time)
+		n = int(float(items.pop(0)))
+		for _time in items:
+			try:
+				_time = round(float(_time), e_round)
+				# print _time
+				if t_min == None:
+					t_min = _time
+				if t_max == None:
+					t_max = _time
+				if t_min > _time:
+					t_min = _time
+				if t_max < _time:
+					t_max = _time
+				if _time in active_nodes:
+					active_nodes[_time].append(n)
+				else:
+					active_nodes[_time] = [n]
+			except ValueError:
+				# print _time
+				continue
 	epsilon = 0.1
-	t_max = max(time) + epsilon
-
-	coarse_file = cc_dir + 'coarse.txt'
+	t_max += epsilon
 	with open(coarse_file, 'w') as f:
-		for line in links:
-				f.write(str(line[0]) + '\t' + str(line[1]) + '\t' + str(coarsen_edge_weight) + '\t' +
-						str(coarsen_edge_weight) + '\n')
-	f.close()
-	return [links], [nodes], [active_nodes], t_min, t_max, epsilon
+		for key in links:
+			line = links[key]
+			f.write(str(line[0]) + '\t' + str(line[1]) + '\t' + str(coarsen_edge_weight) + '\t' +
+					str(coarsen_edge_weight) + '\n')
+	print 'num of links: ' + str(len(links))
+	print 'num of nodes: ' + str(len(nodes))
+	print 'num of active_nodes: ' + str(len(active_nodes))
+	return links, nodes, active_nodes, t_min, t_max, epsilon
 
 
-def get_direction(root_dir, percent):
+def get_direction(root_dir, percent, test_mode):
 	# print('getting directories...')
-	root_dir_percent = root_dir + '/' + percent + '/'
-	root_dir_percent = root_dir_percent.replace('//', '/')
-	active_node_dir = root_dir + '/infection.txt'
-	active_node_dir = active_node_dir.replace('//', '/')
-	link_dir = root_dir + '/graph.txt'
-	link_dir = link_dir.replace('//', '/')
-	node_dir = root_dir + '/nodes.txt'
-	node_dir = node_dir.replace('//', '/')
-	coarse_link_dir = root_dir + '/coarse_graph.txt'
-	coarse_link_dir = coarse_link_dir.replace('//', '/')
-	cc_dir = root_dir + '/cc/'
-	cc_dir = cc_dir.replace('//', '/')
+	root_dir_percent = root_dir + percent + '/'
+	if not test_mode:
+		root_dir_percent = '../' + root_dir_percent
+		root_dir = '../' + root_dir
+	active_node_dir = root_dir + 'active.txt'
+	link_dir = root_dir + 'links.txt'
+	coarse_link_dir = root_dir + 'coarse_graph.txt'
 
-	if not os.path.exists(root_dir_percent):
-		os.makedirs(root_dir_percent)
+	# if not os.path.exists(root_dir_percent):
+	# 	os.makedirs(root_dir_percent)
 
-	if not os.path.exists(cc_dir):
-		os.makedirs(cc_dir)
 	# if not os.path.exists(root_dir_percent + str(coarsen_edge_weight) + '/'):
 	# 	os.makedirs(root_dir_percent + str(coarsen_edge_weight) + '/')
 
-	return link_dir, node_dir, active_node_dir, coarse_link_dir, root_dir_percent, cc_dir, root_dir
+	return link_dir, active_node_dir, coarse_link_dir, root_dir_percent, root_dir
+
+#
+# def GaS(inp):
+# 	seg2cpu, t_min, t_max, s_min, s_max, epsilon = inp
+# 	error = 1e-5
+# 	D = {}
+# 	# all_segments = []
+# 	start_dict = {}
+# 	size_dict = {}
+# 	for seg_size in seg2cpu:
+# 		size_dict[seg_size] = []
+# 		y_s = t_min
+# 		y_e = y_s + seg_size
+# 		while y_s <= (t_max - epsilon):
+# 			try:
+# 				temp = D[str(y_s) + '-' + str(y_e)]
+# 			except KeyError:
+# 				D[str(y_s) + '-' + str(y_e)] = 0
+# 				if reminder((y_e - y_s), s_min) <= error:
+# 					# all_segments.append([y_s, y_e])
+# 					size_dict[seg_size].append([y_s, y_e])
+# 					if y_s in start_dict:
+# 						start_dict[y_s].append([y_s, y_e])
+# 					else:
+# 						start_dict[y_s] = [[y_s, y_e]]
+#
+# 			y_s += s_min
+# 			y_e = min(y_s + seg_size, t_max)
+#
+# 	return size_dict, start_dict
+#
+#
+# def get_all_segments(t_min, t_max, s_min, s_max, epsilon, seg_dir, seg2cpu):
+# 	if thread_alp > 1:
+# 		print 'parallel seg'
+# 		inp = []
+# 		for i in range(len(seg2cpu)):
+# 			inp.append([seg2cpu[i], t_min, t_max, s_min, s_max, epsilon])
+# 		out = pool.map(GaS, inp)
+# 		size_dict = {}
+# 		start_dict = {}
+# 		tmp_v1, v3 = zip(*out)
+# 		for i in range(len(seg2cpu)):
+# 			for key in tmp_v1[i]:
+# 				size_dict[key] = tmp_v1[i][key]
+# 			for key1 in v3[i]:
+# 				if not (key1 in start_dict):
+# 					start_dict[key1] = []
+# 				for value in v3[i][key1]:
+# 					start_dict[key1].append(value)
+#
+# 	else:
+# 		print 'seq seg'
+# 		size_dict, start_dict = GaS([seg2cpu, t_min, t_max, s_min, s_max, epsilon])
+# 	return start_dict, size_dict
 
 
-def main(data, percent, mode, thread, matlab_path):
-	# print(normalize_mode)
+def get_Avg(feature_matrix, smallest_segments, t_min, t_max, s_max, epsilon, thread, seg2cpu):
+	acc = 1e+5
+	D = {}
+	s_min = round(smallest_segments[0][1] - smallest_segments[0][0], e_round)
+	# check if the i in feature_matrix is true
+	for i in range(len(smallest_segments)):
+		small_seg = smallest_segments[i]
+		s1 = round(small_seg[1] * acc) / acc
+		D[s1] = feature_matrix[i]
 
-	coarsen_edge_weight = '0.02'
-	normalizing = True
-	verbal = False
-
-	# mode_seg = 'all'
-	selected_features = range(8)
-
-	# seg_feature_mode = 4
-	test_mode = True
-	coarsening_mode = True
-	distance_mode = 'unweighted'
-	# normal = 'raw'
-
-	input_smin = '1' # The minimum length of a segment
-	input_smax = 'null'
-
-	link_dir, node_dir, active_node_dir, coarse_link_dir, root_dir_percent, cc_dir, root_dir = get_direction(data, percent)
-
-	components_links, components_nodes, components_active_nodes, t_min, t_max, epsilon = read_graph(link_dir,
-																									active_node_dir,
-																									cc_dir)
-	s_min = float(input_smin)
-	num_of_comps = 1
-	# if mode == '1':
-	# links, nodes, active_nodes, t_min, t_max, epsilon = read_graph(link_dir, active_node_dir)
-	# components_links, components_nodes, components_active_nodes = get_components(links, nodes, active_nodes, root_dir)
-	if input_smax == 'null':
-		s_max = t_max - t_min
-	else:
-		s_max = float(input_smax)
-
-	seg_dir = root_dir + 's_min-' + str(s_min) + '-'
-	all_segments, smallest_segments = get_all_segments(t_min, t_max, s_min, s_max, epsilon, seg_dir, data, verbal)
-
-	features = []
-	component_size = []
-	num_active = [0] * len(smallest_segments)
-
-	data_dir = root_dir + percent + '/'
-	if not os.path.exists(data_dir):
-		os.makedirs(data_dir)
-	start1 = time.clock()
-	start2 = time.time()
-
-	component_dir = cc_dir + 'coarse.txt'
-	score_dir = cc_dir + 'score.txt'
-	get_link_score(component_dir, matlab_path, score_dir)
-	component_size = len(components_nodes)
-	inp = []
-	################################
 	if thread > 1:
-		try:
-			for segment_index in range(len(smallest_segments)):
-				inp.append([smallest_segments, segment_index, components_active_nodes, 0, root_dir, cc_dir, root_dir_percent,
-							percent, score_dir, t_min, num_active, coarsening_mode, test_mode, mode, s_min, verbal])
+		inp = []
+		for i in range(len(seg2cpu)):
+			inp.append([seg2cpu[i], acc, s_min, D, t_min, t_max, s_max, epsilon, e_round])
+		out = pool.map(gfp, inp)
+		v1, v2 = zip(*out)
+		wfm = {}
+		start_dict = {}
+		for v in v1:
+			for key in v:
+				wfm[key] = v[key]
+		for i in range(len(seg2cpu)):
+			for key1 in v2[i]:
+				if not (key1 in start_dict):
+					start_dict[key1] = []
+				for value in v2[i][key1]:
+					start_dict[key1].append(value)
 
-			print('multi cpu')
-			pool = mp.Pool(thread)
-			# print pool.map(segmentation, inp)
-			pool.map(segmentation, inp)
-			pool.close()
-			pool.join()
-		except KeyboardInterrupt:
-			'terminate all...'
-			pool.terminate()
 	else:
-		for segment_index in range(len(smallest_segments)):
-			segmentation([smallest_segments, segment_index, components_active_nodes, 0, root_dir, cc_dir,
-						  root_dir_percent, percent, score_dir, t_min, num_active, coarsening_mode, test_mode, mode,
-						  s_min, verbal])
+		wfm, start_dict = gfp([seg2cpu, acc, s_min, D, t_min, t_max, s_max, epsilon, e_round])
+	# whole_feature_matrix = []
+	# for segment in all_segments:
+	# 	whole_feature_matrix.append(wfm[str(segment)])
 
-	###############################
-	component_feature, act_num_coarsen = read_features(smallest_segments, root_dir_percent, selected_features)
-	active_nodes_dir = cc_dir + 'active_nodes_seg_'
-	num_active = read_num_active(smallest_segments, active_nodes_dir)
-	features.append(component_feature)
+	return wfm, start_dict
 
-	feature_matrix = []
-	for seg_index in range(len(features[0])):
-		temp_seg = []
-		for comp_index in range(len(features)):
-			temp_seg.append(features[comp_index][seg_index])
-		feature_matrix.append(temp_seg)
-	last_index = len(feature_matrix) - 1
-	feature_matrix = normalize_features(feature_matrix, normalizing)
 
-	for seg_index in range(len(features[0])):
-		feature_dir = root_dir + '/feature' + str(seg_index) + '_norm.txt'
-		if verbal:
-			with open(feature_dir, 'w') as f:
-				for items in feature_matrix[seg_index]:
-					f.write(str(items) + '\t')
+def gfp(inp):
+	seg2cpu, acc, s_min, D, t_min, t_max, s_max, epsilon, e_round = inp
+	############################################
+	error = 1e-5
+	DD = {}
+	# all_segments = []
+	start_dict = {}
+	size_dict = {}
+	wfm = {}
+	ii = -1
+	for size in seg2cpu:
+		size = round(size, e_round)
+		size_dict[size] = []
+		y_s = t_min
+		y_e = y_s + size
+		while y_s <= (t_max - epsilon):
+			y_s = round(y_s, e_round)
+			y_e = round(y_e, e_round)
+			try:
+				temp = DD[str(y_s) + '-' + str(y_e)]
+			except KeyError:
+				DD[str(y_s) + '-' + str(y_e)] = 0
+				if reminder((y_e - y_s), s_min) <= error:
+					# all_segments.append([y_s, y_e])
+					size_dict[size].append([y_s, y_e])
+					if y_s in start_dict:
+						start_dict[y_s].append([y_s, y_e])
+					else:
+						start_dict[y_s] = [[y_s, y_e]]
 
-	whole_feature_matrix, delta_dictionary, delta_array = seg_feature.main(feature_matrix, all_segments,
-																		   smallest_segments, num_active)
+			y_s += s_min
+			y_e = min(y_s + size, t_max)
+		############################################
+		for segment in size_dict[size]:
+			ii += 1
+			avg = []
+			temp = round(segment[1], e_round)
+			avg = avg + D[temp]
+			t_num = (size / s_min)
 
+			# for j in list(np.arange(segment[0] + s_min, segment[1], s_min)):
+			j = segment[0] + s_min
+			while j < segment[1]:
+				j = round(j * acc) / acc
+				feature_v = D[j]
+				for i in range(len(feature_v)):
+					avg[i] += feature_v[i]
+				j += s_min
+
+			for i in range(len(avg)):
+				avg[i] /= t_num
+			wfm[str(segment)] = avg
+	return wfm, start_dict
+
+
+def generate_graph(start_dict, all_features):
+	print 'generate_graph'
+	Source = 'Source'
+	Target = 'Target'
+	Graph = {}
+	Graph[Source] = {}
+	Graph[Target] = {}
+	for key in start_dict:
+		for value in start_dict[key]:
+			G_key = str(value)
+			a = all_features[G_key]
+			Len = len(a)
+			Graph[G_key] = {}
+			begin_time = value[0]
+			end_time = value[1]
+			if begin_time == t_min:
+				Graph[Source][G_key] = 0
+			if end_time > (t_max - s_min):
+				Graph[G_key][Target] = 0
+			if end_time in start_dict:
+				for neighbor in start_dict[end_time]:
+					b = all_features[str(neighbor)]
+					dist = 0
+					for i in range(Len):
+						dist += (a[i] - b[i])**2
+					Graph[G_key][str(neighbor)] = (dist ** 0.5)
+	return Graph
+#############################################################
+#############################################################
+########################  Main  #############################
+#############################################################
+#############################################################
+data = sys.argv[1] #'./data/toy/' #
+thread = int(sys.argv[2])
+thread_alp = int(sys.argv[3])
+tmp_smin = 1
+percent = '90'
+mode = '1'
+e_round = 10
+
+mode_seg = 'all'
+coarsen_edge_weight = '0.02'
+verbal = False
+test_mode = True
+normalizing = True
+## reserve threads
+max_thread = max(thread, thread_alp)
+if max_thread > 1:
+	pool = multiprocessing.Pool(max_thread)
+
+# mode_seg = 'all'
+selected_features = range(8)
+
+# seg_feature_mode = 4
+coarsening_mode = True
+distance_mode = 'unweighted'
+# normal = 'raw'
+
+input_smin = '1'
+input_smax = 'null'
+link_dir, active_node_dir, coarse_link_dir, root_dir_percent, root_dir = get_direction(data, percent,
+																								 test_mode)
+
+data_dir = root_dir + percent + '/'
+if not os.path.exists(data_dir):
+	os.makedirs(data_dir)
+coarse_file = data_dir + 'coarse.txt'
+links, nodes, active_nodes, t_min, t_max, epsilon = read_graph(link_dir, active_node_dir, coarse_file)
+s_min = tmp_smin #float(input_smin)
+epsilon = s_min/10.0
+num_of_comps = 1
+if input_smax == 'null':
+	s_max = t_max - t_min
+else:
+	s_max = float(input_smax)
+seg_dir = root_dir + 's_min-' + str(s_min) + '-'
+if thread_alp > 1:
+	seg2cpu = [[] for i in range(thread_alp)]
+	s_min = round(s_min, e_round)
+	s = s_min
+	i = 0
+	while s <= s_max:
+		s = round(s, e_round)
+		seg2cpu[i % thread_alp].append(s)
+		s += s_min
+		i += 1
+	# seg2cpu[i % thread_alp].append(s)
+else:
+	seg2cpu = []
+	s = s_min
+	while s <= s_max:
+		s = round(s, e_round)
+		seg2cpu.append(s)
+		s += s_min
+	# seg2cpu.append(s)
+s_total = time.time()
+
+smallest_segments = get_smallest_segments(t_min, t_max, s_min, epsilon, verbal, seg_dir)
+
+print('num of snapshots: ' + str(len(smallest_segments)))
+if thread > 1:
+	snapshot2cpu = [[] for i in range(thread)]
+	for i in range(len(smallest_segments)):
+		snapshot2cpu[i % thread].append(i)
+
+else:
+	snapshot2cpu = range(len(smallest_segments))
+features = []
+
+start1 = time.clock()
+start2 = time.time()
+
+get_link_score(coarse_file, data_dir + 'score.txt')
+inp = []
+################################
+s_sumarry = time.time()
+if thread > 1:
+	for i in range(len(snapshot2cpu)):
+		inp.append([snapshot2cpu[i], smallest_segments, root_dir, data_dir, active_nodes, coarsening_mode])
+	start3 = time.time()
+	print('multi cpu')
+	pool.map(segmentation, inp)
+else:
+	segmentation([snapshot2cpu, smallest_segments, root_dir, data_dir, active_nodes, coarsening_mode])
+
+###############################
+component_feature = read_features(smallest_segments, root_dir, percent, selected_features)
+features.append(component_feature)
+
+feature_matrix = []
+for seg_index in range(len(features[0])):
+	temp_seg = []
+	for comp_index in range(len(features)):
+		temp_seg.append(features[comp_index][seg_index])
+	feature_matrix.append(temp_seg)
+last_index = len(feature_matrix) - 1
+feature_matrix = normalize_features(feature_matrix, normalizing)
+
+for seg_index in range(len(features[0])):
+	feature_dir = data_dir + '/feature' + str(seg_index) + '_norm.txt'
 	if verbal:
-		for seg_index in range(len(all_segments)):
-			feature_dir = root_dir_percent + 'feature' + str(seg_index) + '.txt'
-			with open(feature_dir, 'w') as f:
-				for items in whole_feature_matrix[seg_index]:
-					f.write(str(items) + '\t')
+		with open(feature_dir, 'w') as f:
+			for items in feature_matrix[seg_index]:
+				f.write(str(items) + '\t')
 
-	# ends here for storing the normalized feature values.
-	maxp_len = len(smallest_segments) + 2
-	ALP_arr = galp.main(whole_feature_matrix, all_segments, num_active, component_size, distance_mode, root_dir, maxp_len)
+s_get_Avg = time.time()
+all_features, start_dict = get_Avg(feature_matrix, smallest_segments, t_min, t_max, s_max, epsilon, thread_alp, seg2cpu)
 
-	end2 = time.time()
-	end1 = time.clock()
+feature_dir_perfix = data_dir + '/'
+if not os.path.exists(feature_dir_perfix):
+	os.makedirs(feature_dir_perfix)
+if verbal:
+	for seg in all_features:
+		feature_dir = feature_dir_perfix + 'feature' + str(seg) + '.txt'
+		with open(feature_dir, 'w') as f:
+			for items in all_features[seg]:
+				f.write(str(items) + '\t')
 
-	with open(root_dir + 'walltime.txt', 'w') as f:
-		f.write(str(end2 - start2))
-	with open(root_dir + 'clocktime.txt', 'w') as f:
-		f.write(str(end1 - start1))
+# ends here for storing the normalized feature values.
+s_generate_graph = time.time()
+Graph = generate_graph(start_dict, all_features)
+s_alp = time.time()
+ALP_arr, avg, path_length = falp.main(Graph, 'Source', 'Target', start_dict, t_min, t_max, s_min, 1, seg2cpu)
+FName = root_dir + 'final_segmentation.txt'
+end2 = time.time()
+end1 = time.clock()
+if max_thread > 1:
+	pool.close()
+	pool.join()
 
-
-if __name__ == '__main__':
-	data = sys.argv[1]
-	matlab_path = sys.argv[2]
-	# matlab_path = '/usr/local/R2011B/bin/matlab'
-	thread = int(sys.argv[3])
-
-	# data = './data/toy/' #sys.argv[1]
-	# matlab_path = '/Applications/MATLAB_R2014a.app/bin/matlab' #sys.argv[2]
-	# # matlab_path = '/usr/local/R2011B/bin/matlab'
-	# thread = 1  # sys.argv[3]
-	percent = '90' #sys.argv[4]
-	mode = '1' #sys.argv[5]
-
-	main(data, percent, mode, thread, matlab_path)
+with open(root_dir + 'wall_time.txt', 'w') as f:
+	f.write(str(end2 - start2))
+with open(root_dir + 'clock_time.txt', 'w') as f:
+	f.write(str(end1 - start1))
+with open(FName, 'w') as f:
+	for seg in ALP_arr:
+		try:
+			seg = seg.replace('[', '')
+			seg = seg.replace(']', '')
+			seg = seg.replace(',', '-')
+			f.write(seg + '\t')
+		except AttributeError:
+			continue
+print ALP_arr
